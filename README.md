@@ -36,6 +36,8 @@ The `$schema` line is optional. Keep it and your editor autocompletes the format
 
 Set `"proxied": true` to put Cloudflare's proxy (CDN, TLS) in front of an `A`, `AAAA` or `CNAME` record. Only top-level names can be proxied.
 
+Set `"vercel"` to the verification value Vercel shows for the TXT record `_vercel.is-my.app`, and we publish it there for you (it counts as one DNS record). Not allowed with `deploy`. See [Using a hosting provider](#using-a-hosting-provider).
+
 ### Option 2: we build and host your repo
 
 ```json
@@ -70,7 +72,7 @@ Hosted apps are redeployed automatically, within about an hour, whenever your br
 - Your GitHub account must be at least 14 days old.
 - If your account was created after a domain was last changed, you cannot edit or remove it by pull request, because the username may have been reused. Open an issue and a maintainer will help.
 - Up to 5 apps (top-level names) per person. Nested names do not count as apps.
-- Up to 50 DNS records per person across all of their names (a hosted app counts as one).
+- Up to 50 DNS records per person across all of their names (a hosted app counts as one, and so does the `_vercel` record from `"vercel"`).
 - Nested names like `docs.pomodoro.is-my.app` (`domains/docs.pomodoro.json`) are allowed if you own `pomodoro`, for DNS records only (not `deploy` or `proxied`). Nested labels may start with `_` for verification records, like `_dmarc.pomodoro`.
 - Records must point to public addresses, and a `CNAME` cannot point back into `is-my.app`.
 - No unknown keys: the validator is strict so typos are caught early.
@@ -81,7 +83,17 @@ Hosted apps are redeployed automatically, within about an hour, whenever your br
 Most hosts need to know about your custom domain before they will serve it:
 
 - **GitHub Pages:** set the custom domain in your repository settings, then use `"CNAME": "your-username.github.io"`. To verify the domain, add a TXT record as a nested name, e.g. `domains/_github-pages-challenge-your-username.pomodoro.json` with `"records": { "TXT": "<code from GitHub>" }`.
-- **Vercel / Netlify:** add `pomodoro.is-my.app` as a domain in the project first, then use the `CNAME` (or `TXT` verification record) they show you.
+- **Vercel:** add `pomodoro.is-my.app` as a domain in the project first, then use `"CNAME": "cname.vercel-dns.com"` (or the target Vercel shows). Vercel will also ask for a TXT record at `_vercel.is-my.app`, because is-my.app is verified by another Vercel account. You cannot create that record yourself, so paste its value into `"vercel"` and we publish it there:
+
+  ```json
+  {
+    "owner": { "github": "your-username" },
+    "records": { "CNAME": "cname.vercel-dns.com" },
+    "vercel": "vc-domain-verify=pomodoro.is-my.app,<code from Vercel>"
+  }
+  ```
+
+- **Netlify:** add `pomodoro.is-my.app` as a domain in the project first, then use the `CNAME` (or `TXT` verification record) they show you.
 - **Cloudflare Pages (your own account):** add the custom domain in your Pages project, then point a `CNAME` at `<project>.pages.dev`.
 
 ## How it works
@@ -108,6 +120,7 @@ flowchart LR
 - Static output only. `_worker.js`, `_routes.json` and `functions/` are removed.
 - Builds run in the official `node:<version>` Docker image as a non-root user, with a 15 minute limit and no secrets. Use `npx` or `corepack pnpm ...` / `corepack yarn ...` rather than global installs.
 - At most 20,000 files, each at most 25 MiB. Symlinks are dropped.
+- The pull request check reads your repository's file list and rejects a hosted app whose files can never fit: without a build command, files over 25 MiB or too many files in the output folder; with a build command, a warning only. The hourly redeploy skips a branch that breaks these limits and prints a warning in the run.
 - Redeployed hourly when your branch changes.
 - Top-level names only.
 - Cloudflare Pages has a soft limit of 100 projects per account, so hosted slots are limited.

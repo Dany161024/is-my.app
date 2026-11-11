@@ -80,6 +80,25 @@ test('plan: create, keep, update, delete', () => {
   assert.deepEqual(plan.warnings, []);
 });
 
+test('desiredRecords publishes vercel verification at _vercel on the zone', () => {
+  const value = 'vc-domain-verify=app.is-my.app,f539122e5720ff377cb0';
+  const recs = desiredRecords(map({ app: { owner, records: { CNAME: 'cname.vercel-dns.com' }, vercel: value } }), config);
+  assert.deepEqual(recs[1], { type: 'TXT', name: '_vercel.is-my.app', content: value, proxied: false, ttl: 1, comment: MANAGED });
+  assert.equal(recs.length, 2);
+});
+
+test('plan: several vercel files share _vercel.is-my.app', () => {
+  const v = (n) => ({ owner, records: { CNAME: 'cname.vercel-dns.com' }, vercel: `vc-domain-verify=${n}.is-my.app,abc${n}` });
+  const desired = desiredRecords(map({ a: v('a'), b: v('b') }), config);
+  const created = planDnsChanges([], desired).create;
+  const txt = created.filter((r) => r.name === '_vercel.is-my.app');
+  assert.equal(txt.length, 2);
+  const existing = created.map((r, i) => ({ id: `v${i}`, ...r }));
+  const plan = planDnsChanges(existing, desiredRecords(map({ a: v('a') }), config));
+  assert.deepEqual(plan.create, []);
+  assert.deepEqual(plan.delete.map((r) => `${r.name} ${r.content}`).sort(), ['b.is-my.app cname.vercel-dns.com', `_vercel.is-my.app ${txt[1].content}`].sort());
+});
+
 test('plan: never touches unmanaged or site records', () => {
   const existing = [
     { id: 'apex', type: 'A', name: 'is-my.app', content: '76.76.21.21', proxied: true, ttl: 1, comment: null },

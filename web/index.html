@@ -298,6 +298,7 @@
                 <tr><td><code>records.MX</code></td><td>array</td><td>Mail servers, as hostnames or <code>{ target, priority }</code>.</td></tr>
                 <tr><td><code>records.TXT</code></td><td>string | string[]</td><td>Verification and SPF values.</td></tr>
                 <tr><td><code>proxied</code></td><td>boolean</td><td>Serve through Cloudflare for free HTTPS and caching.</td></tr>
+                <tr><td><code>vercel</code></td><td>string</td><td>Vercel's verification value. We publish it at <code>_vercel.is-my.app</code> for you.</td></tr>
                 <tr class="ref__group"><td colspan="3">deploy <small>ship it</small></td></tr>
                 <tr><td><code>deploy.repo</code></td><td>string</td><td>Public repo as <code>owner/name</code>. Required.</td></tr>
                 <tr><td><code>deploy.branch</code></td><td>string</td><td>Branch to build. Default <code>main</code>.</td></tr>
@@ -316,7 +317,7 @@
             <li>Up to 5 apps and 50 DNS records per GitHub account. The account must be 14 days old.</li>
             <li>Nested names like <code>api.my-app</code> are DNS only, and need you to own <code>my-app</code>.</li>
             <li>Hosted apps and <code>proxied</code> need a top-level name.</li>
-            <li>Builds get 15 minutes, 20,000 files and 25 MiB per file. Static output only.</li>
+            <li>Builds get 15 minutes, 20,000 files and 25 MiB per file. Static output only. Hosted repos are checked for oversized files before merge.</li>
             <li>Use either <code>records</code> or <code>deploy</code>, never both.</li>
           </ul>
         </div>
@@ -371,7 +372,7 @@
       <div class="faq__list">
         <details><summary>Is it actually free?</summary><p>Yes. DNS runs on Cloudflare's free plan and builds run on GitHub Actions, which is free for public repositories. There is nothing to bill you for.</p></details>
         <details><summary>How fast does it go live?</summary><p>Valid pull requests merge themselves. DNS is written within a minute of the merge. Hosted apps take as long as your build, usually one or two minutes.</p></details>
-        <details><summary>My app is on Vercel, Netlify or GitHub Pages. Anything special?</summary><p>Add <code>your-app-name.is-my.app</code> as a custom domain on your host first, then point a CNAME at the target it gives you. The <a href="#recipes">recipes</a> have the exact file for each host.</p></details>
+        <details><summary>My app is on Vercel, Netlify or GitHub Pages. Anything special?</summary><p>Add <code>your-app-name.is-my.app</code> as a custom domain on your host first, then point a CNAME at the target it gives you. On Vercel, also paste the <code>_vercel</code> TXT value it asks for into <code>"vercel"</code>. The <a href="#recipes">recipes</a> have the exact file for each host.</p></details>
         <details><summary>What can the deploy mode build?</summary><p>Any app that produces static files: Vite, React, Svelte, Astro, Next static export, Hugo, Jekyll, plain HTML. Builds run in a <code>node</code> container with no secrets, get 15 minutes, up to 20,000 files and 25 MiB per file. We check your branch every hour and redeploy when it moves.</p></details>
         <details><summary>Do I get HTTPS?</summary><p>Always. In deploy mode Cloudflare issues the certificate for you. In point mode your host issues it, just like any custom domain.</p></details>
         <details><summary>How many apps can I have?</summary><p>Up to five apps per GitHub account, plus nested names under them, with up to 50 DNS records in total. Your account needs to be at least two weeks old.</p></details>

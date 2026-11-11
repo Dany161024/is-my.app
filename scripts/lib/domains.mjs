@@ -1,5 +1,5 @@
 import { readdirSync, readFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, posix } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
 import { isIPv4, isIPv6 } from 'node:net';
@@ -214,7 +214,7 @@ export function validateDomain(name, data, { config, reserved = [] }) {
   const errors = validateName(name, { config, reserved });
   const warnings = [];
   if (!isObj(data)) return { errors: [...errors, 'file must contain a JSON object'], warnings };
-  strictKeys(data, ['$schema', 'owner', 'description', 'records', 'deploy', 'proxied'], 'root', errors);
+  strictKeys(data, ['$schema', 'owner', 'description', 'records', 'deploy', 'proxied', 'vercel'], 'root', errors);
   if ('$schema' in data && typeof data.$schema !== 'string') errors.push('"$schema" must be a string');
 
   if (!isObj(data.owner)) errors.push('"owner" must be an object with your GitHub username in "github"');
@@ -237,10 +237,44 @@ export function validateDomain(name, data, { config, reserved = [] }) {
     else if (data.proxied && !isTopLevel(name)) errors.push('"proxied" is only allowed on top-level names');
     else if (data.proxied && isObj(data.records) && !PROXIABLE.some((t) => t in data.records)) errors.push('"proxied" requires an A, AAAA or CNAME record');
   }
+
+  if ('vercel' in data) {
+    const prefix = `vc-domain-verify=${name}.${config.zone},`;
+    if (hasDeploy) errors.push('"vercel" cannot be used with "deploy" (hosted sites are verified by Cloudflare)');
+    else if (typeof data.vercel !== 'string' || !data.vercel.startsWith(prefix) || !/^[a-z0-9]{1,128}$/i.test(data.vercel.slice(prefix.length))) {
+      errors.push(`"vercel" must be the TXT value Vercel shows for _vercel.${config.zone}, like "vc-domain-verify=${name}.${config.zone},<code>"`);
+    }
+  }
   return { errors, warnings };
 }
 
 export const withDeployDefaults = (d) => ({ ...DEPLOY_DEFAULTS, ...d, build: (d.build ?? '').trim() });
+
+// ---------- hosted repo limits (Cloudflare Pages) ----------
+
+export const PAGES_LIMITS = { files: 20000, fileBytes: 25 * 1024 * 1024 };
+
+// Problems with a GitHub git tree (GET /git/trees/{sha}?recursive=1) that would make the deploy fail.
+export function repoTreeProblems(tree, deploy) {
+  const errors = [];
+  const warnings = [];
+  const d = withDeployDefaults(deploy);
+  const hasBuild = d.build !== '';
+  const dir = posix.normalize(hasBuild ? d.root : posix.join(d.root, d.output)).replace(/\/+$/, '') || '.';
+  const prefix = dir === '.' ? '' : `${dir}/`;
+  const files = (tree?.tree ?? []).filter((e) => e.type === 'blob' && e.mode !== '120000' && e.path.startsWith(prefix));
+  const big = files.filter((e) => e.size > PAGES_LIMITS.fileBytes).map((e) => e.path);
+  const list = `${big.slice(0, 5).join(', ')}${big.length > 5 ? ` and ${big.length - 5} more` : ''}`;
+  if (hasBuild) {
+    if (big.length) warnings.push(`files larger than 25 MiB will fail the deploy if the build copies them into the output: ${list}`);
+  } else {
+    if (big.length) errors.push(`files larger than 25 MiB cannot be hosted on Cloudflare Pages: ${list}`);
+    if (!tree?.truncated && files.length === 0) errors.push(`no files found in "${dir}" to deploy (check deploy.root and deploy.output)`);
+    else if (!tree?.truncated && files.length > PAGES_LIMITS.files) errors.push(`${files.length} files in "${dir}", Cloudflare Pages allows at most ${PAGES_LIMITS.files}`);
+  }
+  if (tree?.truncated) warnings.push('repository is too large to check every file before the build');
+  return { errors, warnings };
+}
 
 // ---------- cross-file validation ----------
 
@@ -248,7 +282,7 @@ export const withDeployDefaults = (d) => ({ ...DEPLOY_DEFAULTS, ...d, build: (d.
 export function recordCount(data) {
   if (isObj(data?.deploy)) return 1;
   if (!isObj(data?.records)) return 0;
-  return Object.values(data.records).reduce((n, v) => n + (Array.isArray(v) ? v.length : 1), 0);
+  return Object.values(data.records).reduce((n, v) => n + (Array.isArray(v) ? v.length : 1), 'vercel' in data ? 1 : 0);
 }
 
 const ownerOf = (data) => (typeof data?.owner?.github === 'string' ? data.owner.github.toLowerCase() : undefined);
@@ -360,6 +394,7 @@ export function desiredRecords(domains, config, pagesSubdomainLookup = () => nul
       out.push(rec('MX', fqdn, normHost(target), false, priority));
     });
     for (const txt of [r.TXT ?? []].flat()) out.push(rec('TXT', fqdn, txt, false));
+    if (data.vercel) out.push(rec('TXT', `_vercel.${config.zone}`, data.vercel, false));
   }
   return out;
 }

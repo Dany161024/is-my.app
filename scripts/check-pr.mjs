@@ -2,7 +2,7 @@
 // reads the PR's files as data through the GitHub API; PR code is never executed.
 import { writeFileSync } from 'node:fs';
 import { Resolver } from 'node:dns/promises';
-import { loadRepo, validateAll, normHost } from './lib/domains.mjs';
+import { loadRepo, validateAll, normHost, repoTreeProblems } from './lib/domains.mjs';
 import { annotate, setOutput, appendSummary, isMain } from './lib/gha.mjs';
 
 export const MARKER = '<!-- is-my-app-bot -->';
@@ -237,8 +237,17 @@ async function main() {
         continue;
       }
       const branch = deploy.branch ?? 'main';
-      if (!(await gh(`/repos/${deploy.repo}/branches/${encodeURIComponent(branch)}`, { allow404: true }))) {
+      const head = await gh(`/repos/${deploy.repo}/branches/${encodeURIComponent(branch)}`, { allow404: true });
+      if (!head) {
         errors.push({ name: c.name, message: `branch \`${branch}\` does not exist in \`${deploy.repo}\`` });
+      } else {
+        try {
+          const found = repoTreeProblems(await gh(`/repos/${deploy.repo}/git/trees/${head.commit.sha}?recursive=1`), deploy);
+          for (const message of found.errors) errors.push({ name: c.name, message });
+          for (const message of found.warnings) warnings.push({ name: c.name, message });
+        } catch (e) {
+          warnings.push({ name: c.name, message: `could not list the files in \`${deploy.repo}\`: ${e.message}` });
+        }
       }
       if (repo.archived) warnings.push({ name: c.name, message: `\`${deploy.repo}\` is archived` });
       if (repo.owner.login.toLowerCase() !== String(c.data.owner?.github).toLowerCase()) {

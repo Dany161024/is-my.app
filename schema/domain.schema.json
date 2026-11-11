@@ -93,6 +93,12 @@
       "default": false,
       "description": "Route traffic through Cloudflare's proxy. Top-level names with A, AAAA or CNAME records only."
     },
+    "vercel": {
+      "type": "string",
+      "maxLength": 400,
+      "pattern": "^vc-domain-verify=[a-z0-9._-]+,[A-Za-z0-9]+$",
+      "description": "Vercel domain verification. Paste the value Vercel shows for the TXT record _vercel.is-my.app; we publish it there for you. Not allowed with deploy."
+    },
     "deploy": {
       "type": "object",
       "description": "Build a public GitHub repository and host it on Cloudflare Pages (static output only). Top-level names only.",
@@ -117,6 +123,6 @@
     { "required": ["deploy"], "not": { "required": ["records"] } }
   ],
   "dependentSchemas": {
-    "deploy": { "not": { "required": ["proxied"] } }
+    "deploy": { "not": { "anyOf": [{ "required": ["proxied"] }, { "required": ["vercel"] }] } }
   }
 }

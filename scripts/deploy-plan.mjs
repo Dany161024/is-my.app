@@ -1,7 +1,7 @@
 // Build the GitHub Actions matrix of hosted sites to (re)deploy.
 // PLAN_MODE: changed (BEFORE_SHA..AFTER_SHA) | stale | all | dns | name:<subdomain>
 import { execFileSync } from 'node:child_process';
-import { loadRepo, validateAll, deployEntries } from './lib/domains.mjs';
+import { loadRepo, validateAll, deployEntries, repoTreeProblems } from './lib/domains.mjs';
 import { annotate, setOutput, isMain } from './lib/gha.mjs';
 
 const MAX_MATRIX = 256;
@@ -53,6 +53,23 @@ function headSha(repo, branch) {
   }
 }
 
+// The repo's file list at `sha`, or null on any failure (the build then reports the real problem).
+async function repoTree(repo, sha) {
+  try {
+    const res = await fetch(`https://api.github.com/repos/${repo}/git/trees/${sha}?recursive=1`, {
+      headers: {
+        Accept: 'application/vnd.github+json',
+        'X-GitHub-Api-Version': '2022-11-28',
+        'User-Agent': 'is-my-app-bot',
+        ...(process.env.GITHUB_TOKEN && { Authorization: `Bearer ${process.env.GITHUB_TOKEN}` }),
+      },
+    });
+    return res.ok ? await res.json() : null;
+  } catch {
+    return null;
+  }
+}
+
 async function main() {
   const { config, reserved, domains } = loadRepo();
   const { valid } = validateAll(domains, config, reserved);
@@ -83,6 +100,12 @@ async function main() {
       continue;
     }
     if (opts.mode === 'stale' && deployed.get(e.project) === sha) continue;
+    const tree = await repoTree(e.repo, sha);
+    const { errors } = tree ? repoTreeProblems(tree, e) : { errors: [] };
+    if (errors.length) {
+      annotate('warning', `${e.name}: not deploying ${e.repo}@${sha.slice(0, 7)}: ${errors.join('; ')}`);
+      continue;
+    }
     include.push({ name: e.name, project: e.project, repo: e.repo, branch: e.branch, build: e.build, output: e.output, root: e.root, node: e.node, sha });
   }
   if (include.length > MAX_MATRIX) {

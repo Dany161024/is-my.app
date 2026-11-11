@@ -2,7 +2,7 @@
 
 > Free subdomains for apps: get `your-app-name.is-my.app` with one JSON file and one pull request.
 
-Point a name at an app you already host (GitHub Pages, Vercel, Netlify, Cloudflare Pages or your own server) with DNS records, or give us a public GitHub repo and we build it and host it on Cloudflare Pages. Fork the repo, add `domains/<app-name>.json`, open a pull request, and a bot validates it. Valid pull requests are merged automatically and the app goes live within a few minutes. The registry of live apps is also available as JSON.
+Point a name at an app you already host (GitHub Pages, Vercel, Netlify, Cloudflare Pages or your own server) with DNS records, or give us a public GitHub repo and we build it and host it on Cloudflare Pages. Fork the repo, add `domains/<app-name>.json`, open a pull request, and a bot validates it. Valid pull requests are merged automatically and the app goes live within a few minutes. Vercel domain verification goes in the `"vercel"` key. The registry of live apps is also available as JSON.
 
 ## Links
 

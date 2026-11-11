@@ -142,6 +142,18 @@ test('proxied rules', () => {
   bad('a', { owner: owner(), deploy: { repo: 'a/b' }, proxied: true }, /cannot be used with "deploy"/);
 });
 
+test('vercel verification rules', () => {
+  const code = 'f539122e5720ff377cb0';
+  ok('a', rec({ CNAME: 'cname.vercel-dns.com' }, { vercel: `vc-domain-verify=a.is-my.app,${code}` }));
+  ok('docs.a', rec({ CNAME: 'cname.vercel-dns.com' }, { vercel: `vc-domain-verify=docs.a.is-my.app,${code}` }));
+  bad('a', rec({ CNAME: 'cname.vercel-dns.com' }, { vercel: `vc-domain-verify=b.is-my.app,${code}` }), /"vercel" must be the TXT value/);
+  bad('docs.a', rec({ CNAME: 'cname.vercel-dns.com' }, { vercel: `vc-domain-verify=a.is-my.app,${code}` }), /"vercel" must be the TXT value/);
+  bad('a', rec({ CNAME: 'cname.vercel-dns.com' }, { vercel: 'vc-domain-verify=a.is-my.app,bad code!' }), /"vercel" must be the TXT value/);
+  bad('a', rec({ CNAME: 'cname.vercel-dns.com' }, { vercel: 'vc-domain-verify=a.is-my.app,' }), /"vercel" must be the TXT value/);
+  bad('a', rec({ CNAME: 'cname.vercel-dns.com' }, { vercel: 5 }), /"vercel" must be the TXT value/);
+  bad('a', { owner: owner(), deploy: { repo: 'a/b' }, vercel: `vc-domain-verify=a.is-my.app,${code}` }, /"vercel" cannot be used with "deploy"/);
+});
+
 test('deploy validation and defaults', () => {
   ok('site', { owner: owner(), deploy: { repo: 'alice/portfolio' } });
   ok('site', { owner: owner(), deploy: { repo: 'alice/my.site', branch: 'gh-pages', build: 'npm ci && npm run build', output: 'dist', root: 'packages/web', node: '20' } });
@@ -204,6 +216,8 @@ test('per-user record cap counts every record, nested names included', () => {
   assert.equal(over.filter((e) => /6 DNS records \(has 7\)/.test(e.message)).length, 4);
   assert.equal(recordCount({ deploy: { repo: 'a/b' } }), 1);
   assert.equal(recordCount({ records: { MX: ['a.example', 'b.example'], TXT: 'x' } }), 3);
+  assert.equal(recordCount({ records: { CNAME: 'example.com' }, vercel: 'vc-domain-verify=a.is-my.app,abc' }), 2);
+  assert.equal(recordCount({ deploy: { repo: 'a/b' } }), 1);
   const m = { owner: owner('jn-aman'), records: { A: ['1.1.1.1', '8.8.8.8', '9.9.9.9', '4.4.4.4'] } };
   assert.deepEqual(allErrors({ a: m, b: m }), []);
 });

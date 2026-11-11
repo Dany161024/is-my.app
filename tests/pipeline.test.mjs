@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { changedNames, parseMode, selectTargets } from '../scripts/deploy-plan.mjs';
 import { evaluate, renderReport, entryProblem, isReclaimedName, MARKER } from '../scripts/check-pr.mjs';
 import { buildIndex } from '../scripts/build-index.mjs';
-import { loadRepo } from '../scripts/lib/domains.mjs';
+import { loadRepo, repoTreeProblems } from '../scripts/lib/domains.mjs';
 
 const config = { zone: 'is-my.app', repo: 'jn-aman/is-my.app', pagesPrefix: 'ismy-', maintainers: ['jn-aman'], maxDomainsPerUser: 2, maxRecordsPerUser: 50, minAccountAgeDays: 14 };
 const reserved = ['www'];
@@ -149,6 +149,60 @@ test('build-index: contract', () => {
     ],
   });
   assert.ok(!JSON.stringify(index).includes('secret@'));
+});
+
+const MiB = 1024 * 1024;
+const blob = (path, size = 100, mode = '100644') => ({ path, mode, type: 'blob', size });
+const treeOf = (entries, truncated = false) => ({ truncated, tree: entries });
+
+test('repoTreeProblems: no build rejects big files in the output folder', () => {
+  const r = repoTreeProblems(treeOf([blob('index.html'), blob('public/huge.bin', 26 * MiB)]), { repo: 'a/b', output: 'public' });
+  assert.deepEqual(r.errors, ['files larger than 25 MiB cannot be hosted on Cloudflare Pages: public/huge.bin']);
+  assert.deepEqual(r.warnings, []);
+});
+
+test('repoTreeProblems: files outside the output folder are ignored', () => {
+  const t = treeOf([blob('public/index.html'), blob('data/huge.bin', 30 * MiB)]);
+  assert.deepEqual(repoTreeProblems(t, { repo: 'a/b', root: '.', output: 'public' }), { errors: [], warnings: [] });
+});
+
+test('repoTreeProblems: with a build, big files are only a warning', () => {
+  const t = treeOf([blob('src/a.js'), blob('assets/huge.bin', 30 * MiB)]);
+  const r = repoTreeProblems(t, { repo: 'a/b', build: 'npm run build', output: 'dist' });
+  assert.deepEqual(r.errors, []);
+  assert.match(r.warnings[0], /will fail the deploy if the build copies them.*assets\/huge\.bin/);
+  assert.deepEqual(repoTreeProblems(treeOf([blob('src/a.js')]), { repo: 'a/b', build: 'npm run build', output: 'dist' }), { errors: [], warnings: [] });
+});
+
+test('repoTreeProblems: empty output and too many files', () => {
+  const none = repoTreeProblems(treeOf([blob('src/a.js')]), { repo: 'a/b', output: 'dist' });
+  assert.deepEqual(none.errors, ['no files found in "dist" to deploy (check deploy.root and deploy.output)']);
+  const many = treeOf(Array.from({ length: 20001 }, (_, i) => blob(`f${i}.txt`)));
+  assert.deepEqual(repoTreeProblems(many, { repo: 'a/b' }).errors, ['20001 files in ".", Cloudflare Pages allows at most 20000']);
+  assert.deepEqual(repoTreeProblems(treeOf(many.tree.slice(0, 20000)), { repo: 'a/b' }).errors, []);
+});
+
+test('repoTreeProblems: symlinks, directories and submodules are ignored', () => {
+  const t = treeOf([blob('index.html'), blob('link', 40 * MiB, '120000'), { path: 'dir', mode: '040000', type: 'tree' }, { path: 'sub', mode: '160000', type: 'commit' }]);
+  assert.deepEqual(repoTreeProblems(t, { repo: 'a/b' }), { errors: [], warnings: [] });
+});
+
+test('repoTreeProblems: truncated trees warn and skip the count checks', () => {
+  const r = repoTreeProblems(treeOf([blob('src/a.js'), blob('big.bin', 30 * MiB)], true), { repo: 'a/b', output: 'dist' });
+  assert.equal(r.errors.length, 0);
+  assert.deepEqual(repoTreeProblems(treeOf([], true), { repo: 'a/b' }).errors, []);
+  assert.deepEqual(repoTreeProblems(treeOf([], true), { repo: 'a/b' }).warnings, ['repository is too large to check every file before the build']);
+  const big = repoTreeProblems(treeOf([blob('big.bin', 30 * MiB)], true), { repo: 'a/b' });
+  assert.equal(big.errors.length, 1);
+  assert.equal(big.warnings.length, 1);
+});
+
+test('repoTreeProblems: the mpcsim shape lists every oversized file', () => {
+  const t = treeOf([blob('index.html'), ...['a', 'b', 'c', 'd'].map((n) => blob(`models/${n}.bin`, 30 * MiB))]);
+  const r = repoTreeProblems(t, { repo: 'fidgetsetc/mpcsim', output: '.' });
+  assert.deepEqual(r.errors, ['files larger than 25 MiB cannot be hosted on Cloudflare Pages: models/a.bin, models/b.bin, models/c.bin, models/d.bin']);
+  const six = treeOf(Array.from({ length: 7 }, (_, i) => blob(`f${i}.bin`, 30 * MiB)));
+  assert.match(repoTreeProblems(six, { repo: 'a/b' }).errors[0], /f4\.bin and 2 more$/);
 });
 
 test('the repository itself is valid', async () => {

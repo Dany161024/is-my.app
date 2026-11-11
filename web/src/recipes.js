@@ -11,8 +11,8 @@ const RECIPES = [
   },
   {
     label: 'Vercel', name: 'habits',
-    doc: { owner, description: 'A tiny habit tracker', records: { CNAME: 'cname.vercel-dns.com' } },
-    note: 'Add <code>habits.is-my.app</code> under Settings, Domains in your Vercel project. Use the CNAME target Vercel shows you if it differs.',
+    doc: { owner, description: 'A tiny habit tracker', records: { CNAME: 'cname.vercel-dns.com' }, vercel: 'vc-domain-verify=habits.is-my.app,<code>' },
+    note: 'Add <code>habits.is-my.app</code> under Settings, Domains in your Vercel project, and use the CNAME target it shows if it differs. Paste the value Vercel asks for at <code>_vercel.is-my.app</code> into <code>"vercel"</code>.',
   },
   {
     label: 'Netlify', name: 'weather',

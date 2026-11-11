@@ -66,6 +66,7 @@ jobs:
         run: node scripts/deploy-plan.mjs
         env:
           PLAN_MODE: ${{ github.event_name == 'push' && 'changed' || github.event_name == 'schedule' && 'stale' || inputs.target }}
+          GITHUB_TOKEN: ${{ github.token }}
           BEFORE_SHA: ${{ github.event.before }}
           AFTER_SHA: ${{ github.sha }}
           CLOUDFLARE_API_TOKEN: ${{ secrets.CF_READ_TOKEN }}
@@ -77,7 +78,9 @@ jobs:
   # interpolate them into a run script.
   build:
     needs: plan
-    if: needs.plan.result == 'success' && needs.plan.outputs.count != '0'
+    # !cancelled(): plan's upstream `dns` is skipped on schedule, and a skipped ancestor
+    # would otherwise skip this job too, leaving deploy with no artifact.
+    if: ${{ !cancelled() && needs.plan.result == 'success' && needs.plan.outputs.count != '0' }}
     name: build ${{ matrix.name }}
     runs-on: ubuntu-latest
     timeout-minutes: 30

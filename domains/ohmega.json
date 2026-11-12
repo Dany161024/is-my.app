@@ -1,0 +1,12 @@
+{
+  "$schema": "../schema/domain.schema.json",
+  "owner": {
+    "github": "Dany161024"
+  },
+  "description": "Ohmega - audio loudness normalizer (EBU R128)",
+  "records": {
+    "A": [
+      "167.233.146.165"
+    ]
+  }
+}

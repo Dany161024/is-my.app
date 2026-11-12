@@ -1,0 +1,12 @@
+{
+  "$schema": "../schema/domain.schema.json",
+  "owner": {
+    "github": "Dany161024"
+  },
+  "description": "Regula - a real-size ruler and protractor for your screen",
+  "records": {
+    "A": [
+      "167.233.146.165"
+    ]
+  }
+}

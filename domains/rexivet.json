@@ -1,0 +1,1 @@
+{"$schema": "../schema/domain.schema.json", "owner": {"github": "th-ming"}, "description": "Rexi Vet Clinic public website", "records": {"CNAME": "cname.vercel-dns.com"}}

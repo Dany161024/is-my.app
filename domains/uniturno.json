@@ -1,0 +1,11 @@
+{
+  "$schema": "../schema/domain.schema.json",
+  "owner": {
+    "github": "ryad12345"
+  },
+  "description": "UniTurno connects students and companies.",
+  "records": {
+    "CNAME": "ff1b2a5ae09948ef.vercel-dns-017.com"
+  },
+  "vercel": "vc-domain-verify=uniturno.is-my.app,7db01da9a325979aa4ed"
+}

@@ -1,0 +1,10 @@
+{
+  "owner": {
+    "github": "sayedatiqurrahman"
+  },
+  "description": "mizan inheritance and zakah calculation system",
+  "vercel": "vc-domain-verify=mizan.is-my.app,117e0bf46c6ab331e5fc",
+  "records": {
+    "CNAME": "ac1248dcd96a0f62.vercel-dns-017.com"
+  }
+}

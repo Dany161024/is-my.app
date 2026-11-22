@@ -1,0 +1,9 @@
+{
+  "$schema": "../schema/domain.schema.json",
+  "owner": {
+    "github": "ryad12345"
+  },
+  "records": {
+    "TXT": "p=MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQCytxd26QgHvgZuA0C1GdKQfBhOMMoU/2vqgTguwY+iS3GzXnx3x6q/b6rH+bA373+yNerjwy6IGve71qoPHxLUw9gR92o7BcoFiVFjg7US/tSZaNC3VEc+X4dIaZjKyw82jvrUNChGltk2DzKWFOzu20iTh5f6rBUMEmDf6wN46QIDAQAB"
+  }
+}

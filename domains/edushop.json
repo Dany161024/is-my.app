@@ -1,0 +1,12 @@
+{
+  "$schema": "../schema/domain.schema.json",
+  "owner": {
+    "github": "Dany161024"
+  },
+  "description": "EduShop - Store of the Future: a free 3D browser game about a sustainable grocery store, made by our 8th-grade school team",
+  "records": {
+    "A": [
+      "167.233.146.165"
+    ]
+  }
+}
